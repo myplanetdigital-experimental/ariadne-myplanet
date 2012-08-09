@@ -36,16 +36,30 @@ bash "Building site..." do
   group "vagrant"
   cwd "/vagrant/data/profiles/#{repo}"
   code <<-EOH
-    rerun 2ndlevel:build \
-      --build-file build-#{repo}.make \
-      --destination /mnt/www/html/#{repo} \
-      --project #{repo}"
+    /vagrant/data/profiles/#{repo}/tmp/scripts/rerun/rerun 2ndlevel:build --build-file build-#{repo}.make --destination /mnt/www/html/#{repo} --project #{repo}
+    cd /mnt/www/html/#{repo}
+    drush sql-sync @myplanet.dev @self \
+      --alias-path=/vagrant/data/profiles/#{repo}/tmp/scripts \
+      --structure-tables-key=myplanet
+      --yes
+    drush vset install_profile myplanet
+    drush sql-query "UPDATE field_data_body SET body_value = REPLACE(body_value, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE field_revision_body SET body_value = REPLACE(body_value, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE menu_router SET include_file = REPLACE(include_file, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE menu_router SET access_arguments = REPLACE(access_arguments, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE panels_pane SET cache = REPLACE(cache, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE panels_pane SET configuration = REPLACE(configuration, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE registry SET filename = REPLACE(filename, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE registry_file SET filename = REPLACE(filename, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE system SET filename = REPLACE(filename, 'sites/all', 'profiles/myplanet');"
+    drush sql-query "UPDATE system SET info = REPLACE(info, 'sites/all', 'profiles/myplanet');"
+    drush cc all
   EOH
   not_if "test -d /mnt/www/html/#{repo}"
   environment({
     'HOME' => '/home/vagrant',
     'RERUN_MODULES' => "/vagrant/data/profiles/#{repo}/tmp/scripts/rerun-modules",
-    'PATH' => "$PATH:/vagrant/data/profiles/#{repo}/tmp/scripts/rerun",
+    #'PATH' => "$PATH:/vagrant/data/profiles/#{repo}/tmp/scripts/rerun",
   })
   notifies :reload, "service[apache2]"
   notifies :restart, "service[varnish]"
