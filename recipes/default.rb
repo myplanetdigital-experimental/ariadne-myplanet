@@ -31,31 +31,43 @@ git "/vagrant/data/profiles/#{repo}" do
   action :sync
 end
 
-bash "Building site..." do
+bash "Prepping site..." do
+  action :nothing
   user "vagrant"
   group "vagrant"
-  cwd "/vagrant/data/profiles/#{repo}"
+  cwd "/mnt/www/html/#{repo}"
   code <<-EOH
-    /vagrant/data/profiles/#{repo}/tmp/scripts/rerun/rerun 2ndlevel:build --build-file build-#{repo}.make --destination /mnt/www/html/#{repo} --project #{repo}
-    cd /mnt/www/html/#{repo}
     drush sql-sync @myplanet.dev @self \
       --alias-path=/vagrant/data/profiles/#{repo}/tmp/scripts \
       --structure-tables-key=myplanet \
       --yes
     drush sql-dump \
       --result-file=/tmp/#{repo}.sql
-    sed -i 's/sites\/all\/modules/profiles\/#{repo}\/modules/g' /tmp/#{repo}.sql
-    sed -i 's/sites\/all\/themes/profiles\/#{repo}\/themes\/custom/g' /tmp/#{repo}.sql
+    sed -i 's/sites\\/all\\/modules/profiles\\/#{repo}\\/modules/g' /tmp/#{repo}.sql
+    sed -i 's/sites\\/all\\/themes/profiles\\/#{repo}\\/themes\\/custom/g' /tmp/#{repo}.sql
     `drush sql-connect` < /tmp/#{repo}.sql
     drush vset install_profile myplanet
     drush cc all
+  EOH
+  environment({
+    'HOME' => '/home/vagrant',
+  })
+end
+
+bash "Building site..." do
+  user "vagrant"
+  group "vagrant"
+  cwd "/vagrant/data/profiles/#{repo}"
+  code <<-"EOH"
+    tmp/scripts/rerun/rerun 2ndlevel:build --build-file build-#{repo}.make --destination /mnt/www/html/#{repo} --project #{repo}
   EOH
   not_if "test -d /mnt/www/html/#{repo}"
   environment({
     'HOME' => '/home/vagrant',
     'RERUN_MODULES' => "/vagrant/data/profiles/#{repo}/tmp/scripts/rerun-modules",
-    #'PATH' => "$PATH:/vagrant/data/profiles/#{repo}/tmp/scripts/rerun",
+    #'PATH' => "${PATH}:/vagrant/data/profiles/#{repo}/tmp/scripts/rerun",
   })
   notifies :reload, "service[apache2]"
   notifies :restart, "service[varnish]"
+  notifies :run, "bash[Prepping site...]", :immediately 
 end
