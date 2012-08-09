@@ -40,19 +40,14 @@ bash "Building site..." do
     cd /mnt/www/html/#{repo}
     drush sql-sync @myplanet.dev @self \
       --alias-path=/vagrant/data/profiles/#{repo}/tmp/scripts \
-      --structure-tables-key=myplanet
+      --structure-tables-key=myplanet \
       --yes
+    drush sql-dump \
+      --result-file=/tmp/#{repo}.sql
+    sed -i 's/sites\/all\/modules/profiles\/#{repo}\/modules/g' /tmp/#{repo}.sql
+    sed -i 's/sites\/all\/themes/profiles\/#{repo}\/themes\/custom/g' /tmp/#{repo}.sql
+    `drush sql-connect` < /tmp/#{repo}.sql
     drush vset install_profile myplanet
-    drush sql-query "UPDATE field_data_body SET body_value = REPLACE(body_value, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE field_revision_body SET body_value = REPLACE(body_value, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE menu_router SET include_file = REPLACE(include_file, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE menu_router SET access_arguments = REPLACE(access_arguments, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE panels_pane SET cache = REPLACE(cache, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE panels_pane SET configuration = REPLACE(configuration, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE registry SET filename = REPLACE(filename, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE registry_file SET filename = REPLACE(filename, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE system SET filename = REPLACE(filename, 'sites/all', 'profiles/myplanet');"
-    drush sql-query "UPDATE system SET info = REPLACE(info, 'sites/all', 'profiles/myplanet');"
     drush cc all
   EOH
   not_if "test -d /mnt/www/html/#{repo}"
